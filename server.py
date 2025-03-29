@@ -6,7 +6,26 @@ PORT = 65432        # Non-privileged port
 
 clients = [] # List to keep track of connected clients
 
-#TODO def handle_client(conn, addr):
+def handle_client(conn, addr):
+    """
+    Handles communication with a single connected client.
+    Continuously listens for incoming messages from that client
+    and logs them to the server. Cleans up on disconnect.
+    """
+    print(f"[+] New connection from {addr}")
+    try:
+        while True:
+            # Receive data from the client
+            data = conn.recv(1024)
+            if not data:
+                break  # No data means the client has disconnected
+            print(f"[{addr}] {data.decode()}")
+    except Exception as e:
+        print(f"[-] Error: {e}")
+    finally:
+        print(f"[-] Connection closed from {addr}")
+        conn.close()
+        clients.remove(conn)
 
 def start_server():
     """
