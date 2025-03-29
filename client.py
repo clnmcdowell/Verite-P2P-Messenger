@@ -53,3 +53,8 @@ def start_client():
         finally:
             print ("\n[*] Closing connection.")
             client_socket.close()
+            
+if __name__ == "__main__":
+    start_client()
+
+

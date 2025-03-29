@@ -48,3 +48,6 @@ def start_server():
             clients.append(conn)
             thread = threading.Thread(target=handle_client, args=(conn, addr))
             thread.start()
+
+if __name__ == "__main__":
+    start_server()
