@@ -43,11 +43,20 @@ def start_server():
         print("[*] Waiting for connections...")
 
         # Main loop: accept and handle incoming client connections
-        while True:
-            conn, addr = server_socket.accept()
-            clients.append(conn)
-            thread = threading.Thread(target=handle_client, args=(conn, addr))
-            thread.start()
+        try:
+            while True:
+                conn, addr = server_socket.accept()
+                clients.append(conn)
+                thread = threading.Thread(target=handle_client, args=(conn, addr))
+                thread.start()
+        # Close the server gracefully on keyboard interrupt
+        except KeyboardInterrupt:
+            print("\n[*] Server shutting down...")
+        finally:
+            for client in clients:
+                client.close()
+            server_socket.close()
+            print("[*] All connections closed.")
 
 if __name__ == "__main__":
     start_server()
