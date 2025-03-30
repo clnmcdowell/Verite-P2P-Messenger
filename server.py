@@ -39,16 +39,21 @@ def start_server():
 
         # Listen for incoming connections
         server_socket.listen()
+        server_socket.settimeout(1.0) # Set a timeout for accept() to avoid blocking indefinitely
+
         print(f"[*] Server started on {HOST}:{PORT}")
         print("[*] Waiting for connections...")
 
         # Main loop: accept and handle incoming client connections
         try:
             while True:
-                conn, addr = server_socket.accept()
-                clients.append(conn)
-                thread = threading.Thread(target=handle_client, args=(conn, addr))
-                thread.start()
+                try:
+                    conn, addr = server_socket.accept()
+                    clients.append(conn)
+                    thread = threading.Thread(target=handle_client, args=(conn, addr))
+                    thread.start()
+                except socket.timeout:
+                    continue # Continue looking for connections if timeout occurs
         # Close the server gracefully on keyboard interrupt
         except KeyboardInterrupt:
             print("\n[*] Server shutting down...")
