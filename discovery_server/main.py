@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from . import models
 from .database import SessionLocal, engine
@@ -41,10 +41,16 @@ def register_peer(request: RegisterRequest, fastapi_request: Request, db: Sessio
     if peer:
         peer.ip = ip
         peer.port = request.port
-        peer.last_seen = datetime.utcnow()
+        peer.last_seen = datetime.now(timezone.utc)
     else:
-        peer = Peer(id=request.id, ip=ip, port=request.port, last_seen=datetime.utcnow())
+        peer = Peer(
+            id=request.id,
+            ip=ip,
+            port=request.port,
+            last_seen=datetime.now(timezone.utc)
+        )
         db.add(peer)
 
     db.commit()
     return {"message": "Peer registered", "ip": ip, "port": request.port}
+
