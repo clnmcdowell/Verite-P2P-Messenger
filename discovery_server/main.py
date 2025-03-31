@@ -69,3 +69,29 @@ def heartbeat(peer_id: str, db: Session = Depends(get_db)):
     peer.last_seen = datetime.now(timezone.utc)
     db.commit()
     return {"message": "Heartbeat received", "timestamp": peer.last_seen}
+
+@app.get("/peers")
+def list_peers(db: Session = Depends(get_db)):
+    """
+    Return a list of peers that have been active in the last 60 seconds.
+    """
+    # Get the current time and calculate the cutoff time for active peers
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(seconds=60)
+
+    # Query the database for peers that have been active since the cutoff time
+    active_peers = db.query(Peer).filter(Peer.last_seen >= cutoff).all()
+
+    if not active_peers:
+        return {"message": "No active peers found"}
+    
+    # Return a list of active peers with their details
+    return [
+        {
+            "id": peer.id,
+            "ip": peer.ip,
+            "port": peer.port,
+            "last_seen": peer.last_seen.isoformat()
+        }
+        for peer in active_peers
+    ]
