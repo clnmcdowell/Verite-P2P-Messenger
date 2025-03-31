@@ -55,7 +55,7 @@ def handle_incoming_connection(conn, addr):
     """
     Handle incoming connections from other peers."
     """
-    print(f"[+] Connected by {addr}")
+    print(f"\n[+] Incoming connection from {addr}\n> ", end="")
 
     # Receive data from the peer
     try:
@@ -63,7 +63,6 @@ def handle_incoming_connection(conn, addr):
             data = conn.recv(4096) # Buffer size of 4096 bytes
             if not data:
                 break
-            print(f"\n[-] Message from {addr}: {data.decode()}")
     except Exception as e:
         print(f"[!] Error handling connection from {addr}: {e}")
     finally:
@@ -90,34 +89,64 @@ def start_listener():
     # Start the listener loop in a separate thread
     threading.Thread(target=listen_loop, daemon=True).start()
 
-def send_message_to_peer(peer_ip, peer_port):
+def receive_messages(sock):
     """
-    Send a message to a specific peer.
+    Continuously receive and print messages from the connected peer.
+    Runs in a separate thread.
     """
-    print(f"[*] Sending message to {peer_ip}:{peer_port}...")
+    try:
+        while True:
+            data = sock.recv(4096)
+            if not data:
+                print("\n[!] Connection closed by peer.")
+                break
+            print(f"\n[←] {data.decode().strip()}\n> ", end="")
+    except Exception as e:
+        print(f"[!] Error receiving message: {e}")
 
-    # Create a socket connection to the peer
+
+def chat_with_peer(peer_ip, peer_port):
+    """
+    Start a chat session with another peer.
+    Sends multiple messages until 'exit' is entered.
+    """
+    print(f"[*] Connecting to {peer_ip}:{peer_port}...")
+
+    # Check if the peer is reachable
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((peer_ip, peer_port))
-            message = input("Enter your message: ")
-            s.sendall(message.encode())
-            print("[✓] Message sent successfully.")
+            print("[✓] Connected. Type messages below (type '/quit' to quit):")
+
+            # Start background thread to receive messages
+            threading.Thread(target=receive_messages, args=(s,), daemon=True).start()
+
+            # Main loop: send messages
+            while True:
+                message = input("> ")
+                if message.strip().lower() == "/quit":
+                    print("[*] Ending chat session.")
+                    
+                # Tag the message with the peer ID and send it
+                tagged_message = f"{PEER_ID} says: {message}"
+                s.sendall(tagged_message.encode())
+
     except Exception as e:
-        print(f"[!] Error sending message to {peer_ip}:{peer_port}: {e}")
+        print(f"[!] Error connecting to {peer_ip}:{peer_port}: {e}")
+
 
 if __name__ == "__main__":
     register_with_discovery_server()
     start_listener()
 
-    print("\n[*] Peer is now online and listening for messages.")
-    print("[*] To send a message enter the recipient's IP and port below.")
+    print(f"\n[✓] Peer '{PEER_ID}' is registered and listening on port {LISTEN_PORT}.")
+    print("[*] You can now send a message to another peer.\n")
+
 
     # Get destination peer's IP and port
     peer_ip = input("Enter peer IP: ").strip()
     peer_port = int(input("Enter peer port: ").strip())
 
-    # Send a single message
-    send_message_to_peer(peer_ip, peer_port)
+    chat_with_peer(peer_ip, peer_port)
 
     print("[*] Message sent. Exiting...")
