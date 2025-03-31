@@ -61,7 +61,7 @@ def handle_incoming_connection(conn, addr):
     """
     Handle incoming connections from other peers."
     """
-    print(f"\n[+] Incoming connection from {addr}")
+    print(f"\n[+] Incoming connection from {addr}. Enter 3 to view the request.")
 
     try:
         # Receive data from the peer
@@ -114,8 +114,11 @@ def receive_messages(sock):
                 print("\n[!] Connection closed by peer.")
                 break
             print(f"\n[←] {data.decode().strip()}\n> ", end="")
+    except ConnectionResetError:
+        print("\n[!] Peer disconnected. Press enter to return to menu.")
     except Exception as e:
         print(f"[!] Error receiving message: {e}")
+
 
 def request_chat_with_peer(peer_ip, peer_port):
     """"
@@ -134,6 +137,9 @@ def request_chat_with_peer(peer_ip, peer_port):
             if response == "ACCEPT":
                 print("[✓] Chat accepted. Starting session.")
                 threading.Thread(target=receive_messages, args=(s,), daemon=True).start()
+                print("[*] Chat session started. Type '/quit' to exit.")
+
+                # Start sending messages
                 while True:
                     message = input("> ")
                     if message.strip().lower() == "/quit":
@@ -152,32 +158,65 @@ def start_chat_loop(conn):
     Start the chat loop for sending and receiving messages.
     """
     print("[*] Chat session started. Type '/quit' to exit.")
-    threading.Thread(target=receive_messages, args=(conn,), daemon=True).start()
 
-    while True:
-        message = input("> ")
-        if message.strip().lower() == "/quit":
-            conn.close()
+    # Use a threading.Event to track disconnection
+    stop_event = threading.Event()
+
+    # Start a thread to receive messages
+    def receiver():
+        try:
+            # Continuously receive messages until the stop event is set
+            while not stop_event.is_set():
+                data = conn.recv(4096)
+                if not data:
+                    print("\n[!] Peer disconnected. Returning to menu.")
+                    stop_event.set()
+                    break
+                print(f"\n[←] {data.decode().strip()}\n> ", end="")
+        except ConnectionResetError:
+            print("\n[!] Peer disconnected. Returning to menu.")
+            stop_event.set()
+        except Exception as e:
+            print(f"[!] Error receiving message: {e}")
+            stop_event.set()
+
+    # Start the receiver thread
+    threading.Thread(target=receiver, daemon=True).start()
+
+    # Main loop for sending messages
+    while not stop_event.is_set():
+        try:
+            # Check for disconnection
+            if stop_event.is_set():
+                break
+
+            # Get user input for sending messages
+            message = input("> ")
+            if message.strip().lower() == "/quit":
+                conn.close()
+                print("[*] You left the chat.")
+                break
+            tagged_message = f"{PEER_ID} says: {message}"
+            conn.sendall(tagged_message.encode())
+        except Exception:
             break
-        tagged_message = f"{PEER_ID} says: {message}"
-        conn.sendall(tagged_message.encode())
 
 def handle_pending_requests():
     """
     Handle pending chat requests from other peers.
     """
-    print("[*] Checking for incoming chat requests...")
     while not chat_requests.empty():
-        # Get the next chat request from the queue and process it
         conn, peer_name, addr = chat_requests.get()
         response = input(f"\n[?] {peer_name} wants to chat. Accept? (y/n): ").strip().lower()
         if response == "y":
             conn.sendall("ACCEPT".encode())
-            print("[✓] Chat started.")
-            start_chat_loop(conn)
+            print("[✓] Chat started. Type '/quit' to exit.")
+            start_chat_loop(conn)  # Blocking call, but user will return to menu after exiting
         else:
             conn.sendall("DECLINE".encode())
             conn.close()
+
+    print("[*] No more pending requests.")
 
 def refresh_peer_list():
     """
