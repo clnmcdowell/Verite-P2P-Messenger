@@ -50,3 +50,42 @@ def get_available_peers():
     except Exception as e:
         print("[!] Error fetching peers:", e)
         return []
+    
+def handle_incoming_connection(conn, addr):
+    """
+    Handle incoming connections from other peers."
+    """
+    print(f"[+] Connected by {addr}")
+
+    # Receive data from the peer
+    try:
+        while True:
+            data = conn.recv(4096) # Buffer size of 4096 bytes
+            if not data:
+                break
+            print(f"\n[-] Message from {addr}: {data.decode()}")
+    except Exception as e:
+        print(f"[!] Error handling connection from {addr}: {e}")
+    finally:
+        conn.close()
+        print(f"[-] Disconnected from {addr}")
+
+def start_listener():
+    """
+    Start a listener to accept incoming connections from other peers."
+    """
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind(("0.0.0.0", LISTEN_PORT))
+    server_socket.listen()
+    print(f"[*] Listening for incoming peer messages on port {LISTEN_PORT}...")
+
+    print("[*] Press Ctrl+C to exit.")
+
+    # Start a thread to handle incoming connections
+    def listen_loop():
+        while True:
+            conn, addr = server_socket.accept()
+            threading.Thread(target=handle_incoming_connection, args=(conn, addr), daemon=True).start()
+
+    # Start the listener loop in a separate thread
+    threading.Thread(target=listen_loop, daemon=True).start()
