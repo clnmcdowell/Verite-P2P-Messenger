@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
@@ -54,3 +54,18 @@ def register_peer(request: RegisterRequest, fastapi_request: Request, db: Sessio
     db.commit()
     return {"message": "Peer registered", "ip": ip, "port": request.port}
 
+@app.post("/heartbeat")
+def heartbeat(peer_id: str, db: Session = Depends(get_db)):
+    """
+    Update the last seen time of a peer.
+    """
+
+
+    peer = db.query(Peer).filter(Peer.id == peer_id).first()
+    if not peer:
+        raise HTTPException(status_code=404, detail="Peer not found")
+    
+    # Update the last seen time to the current time
+    peer.last_seen = datetime.now(timezone.utc)
+    db.commit()
+    return {"message": "Heartbeat received", "timestamp": peer.last_seen}
