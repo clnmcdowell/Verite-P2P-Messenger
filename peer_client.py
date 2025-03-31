@@ -254,10 +254,26 @@ def handle_peer_selection():
     else:
         print("[!] Invalid peer number.")
 
+def start_heartbeat():
+    """
+    Send periodic heartbeats to the discovery server to stay marked as active.
+    """
+    def heartbeat_loop():
+        while True:
+            try:
+                response = requests.post(f"{DISCOVERY_URL}/heartbeat", params={"peer_id": PEER_ID})
+            except Exception as e:
+                print("[!] Failed to send heartbeat:", e)
+            time.sleep(30)  # Adjust interval as needed
 
+    # Start the heartbeat loop in a separate thread
+    threading.Thread(target=heartbeat_loop, daemon=True).start()
+    
 if __name__ == "__main__":
     register_with_discovery_server()
     start_listener()
+    start_heartbeat()
+    refresh_peer_list()
 
     print(f"\n[✓] Peer '{PEER_ID}' is registered and listening on port {LISTEN_PORT}.")
     print("[*] You can now send a message to another peer.\n")
