@@ -1,10 +1,16 @@
 import requests
 import socket
 import threading
+import time
+from queue import Queue
 
 DISCOVERY_URL = "http://127.0.0.1:8000"  # Replace with your discovery server URL or LAN IP
 PEER_ID = input("Enter your peer ID: ")
 LISTEN_PORT = int(input("Enter the port to listen on: "))
+
+chat_requests = Queue() # Queue to hold incoming chat requests
+peer_cache = [] # Cache to store available peers
+
 
 def register_with_discovery_server():
     """
@@ -55,19 +61,26 @@ def handle_incoming_connection(conn, addr):
     """
     Handle incoming connections from other peers."
     """
-    print(f"\n[+] Incoming connection from {addr}\n> ", end="")
+    print(f"\n[+] Incoming connection from {addr}")
 
-    # Receive data from the peer
     try:
-        while True:
-            data = conn.recv(4096) # Buffer size of 4096 bytes
-            if not data:
-                break
+        # Receive data from the peer
+        data = conn.recv(4096).decode().strip()
+
+        if not data:
+            print("[!] No data received. Closing connection.")
+            conn.close()
+            return
+        
+        # Queue chat requests for the main thread to handle
+        if data.startswith("CHAT_REQUEST:"):
+            peer_name = data.split(":", 1)[1]
+            chat_requests.put((conn, peer_name, addr))
+        else:
+            print(f"[←] {data}")
+            conn.close()
     except Exception as e:
         print(f"[!] Error handling connection from {addr}: {e}")
-    finally:
-        conn.close()
-        print(f"[-] Disconnected from {addr}")
 
 def start_listener():
     """
@@ -104,35 +117,103 @@ def receive_messages(sock):
     except Exception as e:
         print(f"[!] Error receiving message: {e}")
 
-
-def chat_with_peer(peer_ip, peer_port):
+def request_chat_with_peer(peer_ip, peer_port):
+    """"
+    Request to chat with another peer.
     """
-    Start a chat session with another peer.
-    Sends multiple messages until 'exit' is entered.
-    """
-    print(f"[*] Connecting to {peer_ip}:{peer_port}...")
+    print(f"[*] Requesting chat with {peer_ip}:{peer_port}...")
 
     # Check if the peer is reachable
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((peer_ip, peer_port))
-            print("[✓] Connected. Type messages below (type '/quit' to quit):")
+            s.sendall(f"CHAT_REQUEST:{PEER_ID}".encode())
 
-            # Start background thread to receive messages
-            threading.Thread(target=receive_messages, args=(s,), daemon=True).start()
-
-            # Main loop: send messages
-            while True:
-                message = input("> ")
-                if message.strip().lower() == "/quit":
-                    print("[*] Ending chat session.")
-                    
-                # Tag the message with the peer ID and send it
-                tagged_message = f"{PEER_ID} says: {message}"
-                s.sendall(tagged_message.encode())
-
+            # Wait for the peer's response
+            response = s.recv(4096).decode().strip()
+            if response == "ACCEPT":
+                print("[✓] Chat accepted. Starting session.")
+                threading.Thread(target=receive_messages, args=(s,), daemon=True).start()
+                while True:
+                    message = input("> ")
+                    if message.strip().lower() == "/quit":
+                        s.close()
+                        print("[*] Chat session ended.")
+                        break
+                    tagged_message = f"{PEER_ID} says: {message}"
+                    s.sendall(tagged_message.encode())
+            else:
+                print("[X] Chat declined.")
     except Exception as e:
-        print(f"[!] Error connecting to {peer_ip}:{peer_port}: {e}")
+        print(f"[!] Failed to request chat: {e}")
+
+def start_chat_loop(conn):
+    """
+    Start the chat loop for sending and receiving messages.
+    """
+    print("[*] Chat session started. Type '/quit' to exit.")
+    threading.Thread(target=receive_messages, args=(conn,), daemon=True).start()
+
+    while True:
+        message = input("> ")
+        if message.strip().lower() == "/quit":
+            conn.close()
+            break
+        tagged_message = f"{PEER_ID} says: {message}"
+        conn.sendall(tagged_message.encode())
+
+def handle_pending_requests():
+    """
+    Handle pending chat requests from other peers.
+    """
+    print("[*] Checking for incoming chat requests...")
+    while not chat_requests.empty():
+        # Get the next chat request from the queue and process it
+        conn, peer_name, addr = chat_requests.get()
+        response = input(f"\n[?] {peer_name} wants to chat. Accept? (y/n): ").strip().lower()
+        if response == "y":
+            conn.sendall("ACCEPT".encode())
+            print("[✓] Chat started.")
+            start_chat_loop(conn)
+        else:
+            conn.sendall("DECLINE".encode())
+            conn.close()
+
+def refresh_peer_list():
+    """
+    Refresh the cached list of available peers.
+    """
+    global peer_cache
+    peer_cache = get_available_peers()
+
+def display_peer_list():
+    """
+    Display the list of available peers.
+    """
+    if not peer_cache:
+        return
+
+    # Print the list of available peers
+    print(f"\n=== Available Peers ({len(peer_cache)}) ===")
+    for idx, peer in enumerate(peer_cache, start=1):
+        print(f"{idx}. {peer['id']} at {peer['ip']}:{peer['port']}")
+
+def handle_peer_selection():
+    if not peer_cache:
+        print("[!] No peers available. Try refreshing first.")
+        return
+
+    selection = input("Enter peer number to chat: ").strip()
+    if not selection.isdigit():
+        print("[!] Invalid input.")
+        return
+
+    index = int(selection)
+    if 1 <= index <= len(peer_cache):
+        peer = peer_cache[index - 1]
+        request_chat_with_peer(peer["ip"], peer["port"])
+    else:
+        print("[!] Invalid peer number.")
 
 
 if __name__ == "__main__":
@@ -142,11 +223,28 @@ if __name__ == "__main__":
     print(f"\n[✓] Peer '{PEER_ID}' is registered and listening on port {LISTEN_PORT}.")
     print("[*] You can now send a message to another peer.\n")
 
+    # Main loop for the client
+    while True:
+        print("\n=== Main Menu ===")
+        print("1. View available peers")
+        print("2. Refresh peer list")
+        print("3. View incoming chat requests", end="")
+        if not chat_requests.empty():
+            print(f" ({chat_requests.qsize()} pending)")
+        else:
+            print()
+        print("q. Quit")
 
-    # Get destination peer's IP and port
-    peer_ip = input("Enter peer IP: ").strip()
-    peer_port = int(input("Enter peer port: ").strip())
+        choice = input("Select an option: ").strip().lower()
 
-    chat_with_peer(peer_ip, peer_port)
-
-    print("[*] Message sent. Exiting...")
+        if choice == "1":
+            display_peer_list()
+            handle_peer_selection()
+        elif choice == "2":
+            refresh_peer_list()
+        elif choice == "3":
+            handle_pending_requests()
+        elif choice == "q":
+            break
+        else:
+            print("[!] Invalid option.")
