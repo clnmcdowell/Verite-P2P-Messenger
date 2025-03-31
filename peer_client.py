@@ -95,7 +95,7 @@ def send_message_to_peer(peer_ip, peer_port):
     Send a message to a specific peer.
     """
     print(f"[*] Sending message to {peer_ip}:{peer_port}...")
-    
+
     # Create a socket connection to the peer
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -105,3 +105,19 @@ def send_message_to_peer(peer_ip, peer_port):
             print("[✓] Message sent successfully.")
     except Exception as e:
         print(f"[!] Error sending message to {peer_ip}:{peer_port}: {e}")
+
+if __name__ == "__main__":
+    register_with_discovery_server()
+    start_listener()
+
+    print("\n[*] Peer is now online and listening for messages.")
+    print("[*] To send a message enter the recipient's IP and port below.")
+
+    # Get destination peer's IP and port
+    peer_ip = input("Enter peer IP: ").strip()
+    peer_port = int(input("Enter peer port: ").strip())
+
+    # Send a single message
+    send_message_to_peer(peer_ip, peer_port)
+
+    print("[*] Message sent. Exiting...")
