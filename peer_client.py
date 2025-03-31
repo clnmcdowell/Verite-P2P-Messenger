@@ -89,3 +89,19 @@ def start_listener():
 
     # Start the listener loop in a separate thread
     threading.Thread(target=listen_loop, daemon=True).start()
+
+def send_message_to_peer(peer_ip, peer_port):
+    """
+    Send a message to a specific peer.
+    """
+    print(f"[*] Sending message to {peer_ip}:{peer_port}...")
+    
+    # Create a socket connection to the peer
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((peer_ip, peer_port))
+            message = input("Enter your message: ")
+            s.sendall(message.encode())
+            print("[✓] Message sent successfully.")
+    except Exception as e:
+        print(f"[!] Error sending message to {peer_ip}:{peer_port}: {e}")
