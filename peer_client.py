@@ -106,8 +106,8 @@ def start_listener():
 
 def receive_messages(sock):
     """
-    Continuously receive and print messages from the connected peer.
-    Runs in a separate thread.
+    Continuously receive and process messages from the connected peer.
+    Handles both text and file transfers.
     """
     try:
         while True:
@@ -115,12 +115,35 @@ def receive_messages(sock):
             if not data:
                 print("\n[!] Connection closed by peer.")
                 break
-            print(f"\n[←] {data.decode().strip()}\n> ", end="")
+
+            message = data.decode().strip()
+
+            if message.startswith("FILE_TRANSFER:"):
+                try:
+                    # Parse message
+                    parts = message.split(":", 2)
+                    if len(parts) == 3:
+                        _, filename, encoded_data = parts
+                        file_bytes = base64.b64decode(encoded_data)
+                        save_path = f"received_{filename}"
+
+                        with open(save_path, "wb") as f:
+                            f.write(file_bytes)
+
+                        print(f"\n[📁] Received file '{filename}' and saved as '{save_path}'\n> ", end="")
+                    else:
+                        print("\n[!] Malformed FILE_TRANSFER message.\n> ", end="")
+
+                except Exception as e:
+                    print(f"\n[!] Error processing incoming file: {e}\n> ", end="")
+
+            else:
+                print(f"\n[←] {message}\n> ", end="")
+
     except ConnectionResetError:
         print("\n[!] Peer disconnected. Press enter to return to menu.")
     except Exception as e:
         print(f"[!] Error receiving message: {e}")
-
 
 def request_chat_with_peer(peer_ip, peer_port):
     """"
