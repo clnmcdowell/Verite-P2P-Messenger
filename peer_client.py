@@ -3,6 +3,7 @@ import socket
 import threading
 import time
 import os
+import base64
 from queue import Queue
 
 DISCOVERY_URL = os.getenv("DISCOVERY_URL", "http://127.0.0.1:8000")  # Replace with your discovery server URL or LAN IP
@@ -129,26 +130,29 @@ def request_chat_with_peer(peer_ip, peer_port):
 
     # Check if the peer is reachable
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((peer_ip, peer_port))
-            s.sendall(f"CHAT_REQUEST:{PEER_ID}".encode())
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.connect((peer_ip, peer_port))
+            sock.sendall(f"CHAT_REQUEST:{PEER_ID}".encode())
 
             # Wait for the peer's response
-            response = s.recv(4096).decode().strip()
+            response = sock.recv(4096).decode().strip()
             if response == "ACCEPT":
                 print("[✓] Chat accepted. Starting session.")
-                threading.Thread(target=receive_messages, args=(s,), daemon=True).start()
+                threading.Thread(target=receive_messages, args=(sock,), daemon=True).start()
                 print("[*] Chat session started. Type '/quit' to exit.")
 
                 # Start sending messages
                 while True:
                     message = input("> ")
                     if message.strip().lower() == "/quit":
-                        s.close()
+                        sock.close()
                         print("[*] Chat session ended.")
                         break
+                    elif message.strip().lower() == "/sendfile":
+                        send_file(sock)
+                        continue
                     tagged_message = f"{PEER_ID} says: {message}"
-                    s.sendall(tagged_message.encode())
+                    sock.sendall(tagged_message.encode())
             else:
                 print("[X] Chat declined.")
     except Exception as e:
@@ -197,6 +201,9 @@ def start_chat_loop(conn):
                 conn.close()
                 print("[*] You left the chat.")
                 break
+            elif message.strip().lower() == "/sendfile":
+                send_file(conn)
+            continue
             tagged_message = f"{PEER_ID} says: {message}"
             conn.sendall(tagged_message.encode())
         except Exception:
@@ -269,7 +276,29 @@ def start_heartbeat():
 
     # Start the heartbeat loop in a separate thread
     threading.Thread(target=heartbeat_loop, daemon=True).start()
-    
+
+def send_file(sock):
+    file_path = input("Enter the path of the file to send: ").strip()
+
+    # Validate file path
+    if not os.path.isfile(file_path):
+        print("[!] File not found.")
+        return
+
+    try:
+        with open(file_path, "rb") as f:
+            file_data = f.read()
+        encoded_data = base64.b64encode(file_data).decode("utf-8")
+        filename = os.path.basename(file_path)
+
+        # Format message
+        message = f"FILE_TRANSFER:{filename}:{encoded_data}"
+        sock.sendall(message.encode("utf-8"))
+        print(f"[✓] Sent file '{filename}'")
+
+    except Exception as e:
+        print(f"[!] Failed to send file: {e}")
+
 if __name__ == "__main__":
     register_with_discovery_server()
     start_listener()
