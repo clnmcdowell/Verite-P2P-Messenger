@@ -2,9 +2,10 @@ import requests
 import socket
 import threading
 import time
+import os
 from queue import Queue
 
-DISCOVERY_URL = "http://127.0.0.1:8000"  # Replace with your discovery server URL or LAN IP
+DISCOVERY_URL = os.getenv("DISCOVERY_URL", "http://127.0.0.1:8000")  # Replace with your discovery server URL or LAN IP
 PEER_ID = input("Enter your peer ID: ")
 LISTEN_PORT = int(input("Enter the port to listen on: "))
 
