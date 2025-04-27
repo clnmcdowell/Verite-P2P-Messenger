@@ -11,6 +11,9 @@ from registration import register_peer
 
 import threading
 import logging
+import base64
+import os
+
 
 logging.basicConfig(
     filename="tui_debug.log",
@@ -98,7 +101,7 @@ class PeerListScreen(Screen):
         self.peer_list.clear()
         for i, peer in enumerate(self.app.peer_cache):
             display_id = peer["id"] if peer["id"] else f"peer-{i}"
-            label = Label(f"{peer['id'] or '[no id]'} at {peer['ip']}:{peer['port']}")
+            label = Label(f"{peer['id'] or '[no id]'} at {peer['ip']}:{peer['port']}", markup=False)
             item = ListItem(label, id=display_id)
             item.data = peer
             self.peer_list.append(item)
@@ -146,6 +149,7 @@ class ChatScreen(Screen):
         self.peer_name = peer_name
         self.my_id = my_id
         self.stop_event = threading.Event()
+        self.awaiting_file_path = False
 
     def compose(self) -> ComposeResult:
         yield Header(f"Chat with {self.peer_name}")
@@ -153,7 +157,9 @@ class ChatScreen(Screen):
         yield VerticalScroll(self.history, id="history_container")
         self.input = Input(placeholder="Type message and hit Enter", id="chat_input")
         yield self.input
-        yield Button("Quit Chat", id="quit_chat")
+        with Vertical():
+            yield Button("Send File", id="send_file")
+            yield Button("Quit Chat", id="quit_chat")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -167,7 +173,32 @@ class ChatScreen(Screen):
                         break
                     raw = data.decode().strip()
 
-                    # remove "<peer_id> says: " prefix
+                    # File transfer message:
+                    if raw.startswith("FILE_TRANSFER:"):
+                        parts = raw.split(":", 2)
+                        if len(parts) == 3:
+                            _, filename, encoded_data = parts
+                            try:
+                                file_bytes = base64.b64decode(encoded_data)
+                                save_path = f"received_{filename}"
+
+                                with open(save_path, "wb") as f:
+                                    f.write(file_bytes)
+
+                                self.app.call_from_thread(lambda: (
+                                    self.history.append(
+                                        ListItem(Label(f"[📁] Received file '{filename}' (saved to {save_path})", markup=False))
+                                    )
+                                ))
+                            except Exception as e:
+                                self.app.call_from_thread(lambda: (
+                                    self.history.append(
+                                        ListItem(Label(f"[!] Failed to save received file: {e}", markup=False))
+                                    )
+                                ))
+                            continue  # skip normal message handling
+
+                    # Normal chat messages:
                     prefix = f"{self.peer_name} says: "
                     content = raw[len(prefix):] if raw.startswith(prefix) else raw
 
@@ -179,14 +210,10 @@ class ChatScreen(Screen):
                             )
                         )
                     ))
-
-                    # auto-scroll to bottom
-                    self.app.call_from_thread(self.history.scroll_end)
             except Exception:
-                self.app.call_from_thread(
-                    self.history.append,
-                    ListItem(Label("[!] Connection lost"))
-                )
+                self.app.call_from_thread(lambda: (
+                    self.history.append(ListItem(Label("[!] Connection lost", markup=False)))
+                ))
             finally:
                 self.stop_event.set()
 
@@ -208,21 +235,56 @@ class ChatScreen(Screen):
             self.input.value = ""
             self.set_focus(self.input)
             return
+
+        if self.awaiting_file_path:
+            import os
+            import base64
+            file_path = text
+            if not os.path.isfile(file_path):
+                self.history.append(ListItem(Label("[!] File not found.", markup=False)))
+                self.input.placeholder = "Type message and hit Enter"
+                self.input.value = ""
+                self.awaiting_file_path = False
+                self.set_focus(self.input)
+                return
+
+            try:
+                with open(file_path, "rb") as f:
+                    encoded_data = base64.b64encode(f.read()).decode("utf-8")
+                filename = os.path.basename(file_path)
+                message = f"FILE_TRANSFER:{filename}:{encoded_data}"
+                self.conn.sendall(message.encode("utf-8"))
+                label = Label(f"[📁] Sent file '{filename}'", markup=False)
+                label.styles.color = "yellow"
+                self.history.append(ListItem(label))
+            except Exception as e:
+                self.history.append(ListItem(Label(f"[!] Failed to send file: {e}", markup=False)))
+
+            self.input.placeholder = "Type message and hit Enter"
+            self.input.value = ""
+            self.awaiting_file_path = False
+            self.set_focus(self.input)
+            return
         try:
             self.conn.sendall(f"{self.my_id} says: {text}".encode())
-            label = Label(f"You: {text}")
+            label = Label(f"You: {text}", markup=False)
             label.styles.color = "green"
             self.history.append(ListItem(label))
-            self.history.scroll_end() # scroll to bottom after sending a message
         except ConnectionResetError:
-            self.history.append(ListItem(Label("[!] Peer disconnected")))
+            self.history.append(ListItem(Label("[!] Peer disconnected", markup=False)))
             self.stop_event.set()
         finally:
             self.input.value = ""
             self.set_focus(self.input)
 
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "quit_chat":
+        if event.button.id == "send_file":
+            self.awaiting_file_path = True
+            self.input.placeholder = "Enter path to file..."
+            self.input.value = ""
+            self.set_focus(self.input)
+        elif event.button.id == "quit_chat":
             self.conn.close()
             self.stop_event.set()
             self.app.pop_screen()
