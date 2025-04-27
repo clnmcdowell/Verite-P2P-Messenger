@@ -1,15 +1,17 @@
+from textual import events
 from textual.app import App, ComposeResult
-from textual.containers import Vertical
+from textual.containers import Vertical, VerticalScroll
 from textual.widgets import Header, Footer, Static, Button, Input, ListView, ListItem, Label
 from textual.screen import Screen
 from textual.timer import Timer
-
 from discovery_api import get_available_peers
 from chat_client import request_chat_with_peer, start_chat_session
 from chat_listener import chat_requests, start_listener_thread
 from registration import register_peer
 
+import threading
 import logging
+
 logging.basicConfig(
     filename="tui_debug.log",
     level=logging.DEBUG,
@@ -126,8 +128,7 @@ class ChatRequestsScreen(Screen):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "accept":
             self.conn.sendall("ACCEPT".encode())
-            self.app.pop_screen()
-            start_chat_session(self.conn, self.app.peer_id)
+            self.app.push_screen(ChatScreen(self.conn, self.peer_name, self.app.peer_id))
         elif event.button.id == "decline":
             self.conn.sendall("DECLINE".encode())
             self.conn.close()
@@ -135,7 +136,107 @@ class ChatRequestsScreen(Screen):
         elif event.button.id == "back":
             self.app.pop_screen()
 
-class MessengerApp(App):
+class ChatScreen(Screen):
+    """
+    A simple chat screen: history on top, input at bottom.
+    """
+    def __init__(self, conn, peer_name, my_id):
+        super().__init__()
+        self.conn = conn
+        self.peer_name = peer_name
+        self.my_id = my_id
+        self.stop_event = threading.Event()
+
+    def compose(self) -> ComposeResult:
+        yield Header(f"Chat with {self.peer_name}")
+        self.history = ListView(id="history")
+        yield VerticalScroll(self.history, id="history_container")
+        self.input = Input(placeholder="Type message and hit Enter", id="chat_input")
+        yield self.input
+        yield Button("Quit Chat", id="quit_chat")
+        yield Footer()
+
+    def on_mount(self) -> None:
+        # start a thread to recv messages
+        def receiver():
+            try:
+                while not self.stop_event.is_set():
+                    data = self.conn.recv(4096)
+                    if not data:
+                        self.app.push_screen(MainMenuScreen())
+                        break
+                    raw = data.decode().strip()
+
+                    # remove "<peer_id> says: " prefix
+                    prefix = f"{self.peer_name} says: "
+                    content = raw[len(prefix):] if raw.startswith(prefix) else raw
+
+                    # append peer message in cyan
+                    self.app.call_from_thread(lambda: (
+                        self.history.append(
+                            ListItem(
+                                (lambda label: (label.styles.__setattr__("color", "cyan"), label)[1])(Label(f"{self.peer_name}: {content}"))
+                            )
+                        )
+                    ))
+
+                    # auto-scroll to bottom
+                    self.app.call_from_thread(self.history.scroll_end)
+            except Exception:
+                self.app.call_from_thread(
+                    self.history.append,
+                    ListItem(Label("[!] Connection lost"))
+                )
+            finally:
+                self.stop_event.set()
+
+        threading.Thread(target=receiver, daemon=True).start()
+        self.set_focus(self.input)
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        text = event.value.strip()
+        if not text:
+            return
+        if text.lower() == "/quit":
+            self.conn.close()
+            self.stop_event.set()
+            self.app.pop_screen()
+            return
+        if text.lower() == "/sendfile":
+            self.awaiting_file_path = True
+            self.input.placeholder = "Enter path to file..."
+            self.input.value = ""
+            self.set_focus(self.input)
+            return
+        try:
+            self.conn.sendall(f"{self.my_id} says: {text}".encode())
+            label = Label(f"You: {text}")
+            label.styles.color = "green"
+            self.history.append(ListItem(label))
+            self.history.scroll_end() # scroll to bottom after sending a message
+        except ConnectionResetError:
+            self.history.append(ListItem(Label("[!] Peer disconnected")))
+            self.stop_event.set()
+        finally:
+            self.input.value = ""
+            self.set_focus(self.input)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "quit_chat":
+            self.conn.close()
+            self.stop_event.set()
+            self.app.pop_screen()
+
+    async def on_key(self, event: events.Key) -> None:
+        # press ESC to quit chat
+        if event.key == "escape":
+            self.conn.close()
+            self.stop_event.set()
+            self.app.pop_screen()
+
+
+
+class VeriteConsole(App):
     def __init__(self):
         super().__init__()
         self.peer_id = "unknown"
@@ -153,4 +254,4 @@ class MessengerApp(App):
             self.push_screen(ChatRequestsScreen())
 
 if __name__ == "__main__":
-    MessengerApp().run()
+    VeriteConsole().run()
