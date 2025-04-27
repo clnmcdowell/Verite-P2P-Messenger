@@ -111,7 +111,6 @@ class PeerListScreen(Screen):
             item.data = peer
             self.peer_list.append(item)
 
-
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "back":
             self.app.pop_screen()
@@ -119,7 +118,24 @@ class PeerListScreen(Screen):
             selected = self.peer_list.index
             if selected is not None and selected < len(self.app.peer_cache):
                 peer = self.app.peer_cache[selected]
-                request_chat_with_peer(self.app.peer_id, peer["ip"], peer["port"])
+                try:
+                    import socket
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.connect((peer["ip"], peer["port"]))
+                    sock.sendall(f"CHAT_REQUEST:{self.app.peer_id}".encode())
+
+                    response = sock.recv(4096).decode().strip()
+                    if response == "ACCEPT":
+                        self.app.push_screen(ChatScreen(sock, peer["id"], self.app.peer_id))
+                    else:
+                        sock.close()
+                        from textual.widgets import Label
+                        self.app.push_screen(MainMenuScreen())
+                        self.app.call_later(lambda: print(f"[!] Chat request declined by {peer['id']}"))
+                except Exception as e:
+                    print(f"[!] Error initiating chat: {e}")
+                    self.app.push_screen(MainMenuScreen())
+
 
 class ChatRequestsScreen(Screen):
     def compose(self) -> ComposeResult:
@@ -300,7 +316,7 @@ class ChatScreen(Screen):
             self.conn.close()
             self.stop_event.set()
             self.app.push_screen(MainMenuScreen())
-            
+
 
 class VeriteConsole(App):
     def __init__(self):
