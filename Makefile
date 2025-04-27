@@ -19,13 +19,13 @@ server:
 	$(PYTHON) -m uvicorn discovery_server.main:app \
 		--reload --host 127.0.0.1 --port 8000
 
-tui:
-	@echo "Starting Textual UI client"
-	$(PYTHON) tui.py
+shell:
+	@echo "Launching Verite Shell (CLI)"
+	DISCOVERY_URL=$(DISCOVERY_URL) $(PYTHON) verite_shell.py
 
-peer:
-	@echo "Starting CLI peer client"
-	$(PYTHON) peer_client.py
+console:
+	@echo "Launching Verite Console (TUI)"
+	DISCOVERY_URL=$(DISCOVERY_URL) $(PYTHON) verite_console.py
 
 clean:
 	rm -rf $(VENV)

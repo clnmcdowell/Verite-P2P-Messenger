@@ -19,8 +19,8 @@ This project is a simple peer-to-peer messaging system with a centralized discov
 
 | File                            | Purpose                                                               |
 |---------------------------------|-----------------------------------------------------------------------|
-| `peer_client.py`                | CLI-based peer application that chats with other peers                |
-| `tui.py`                        | Textual-based TUI client for peer login, peer discovery, and chat     |
+| `verite_shell.py`               | Verite Shell: CLI-based peer application that chats with other peers                |
+| `verite_console.py`             | Verite Console: Textual-based TUI client for peer discovery and chat     |
 | `discovery_server/main.py`      | FastAPI server with `/register`, `/heartbeat`, and `/peers` endpoints |
 | `discovery_server/models.py`    | SQLAlchemy model for the `Peer` table                                 |
 | `discovery_server/database.py`  | SQLite database configuration                                         |
@@ -62,9 +62,9 @@ make server
 ### 4. Launch a client
 
 ```bash
-make tui
+make console
 # or
-make peer
+make shell
 
 ```
 
