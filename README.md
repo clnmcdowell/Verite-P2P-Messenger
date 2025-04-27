@@ -20,6 +20,7 @@ This project is a simple peer-to-peer messaging system with a centralized discov
 | File                            | Purpose                                                               |
 |---------------------------------|-----------------------------------------------------------------------|
 | `peer_client.py`                | CLI-based peer application that chats with other peers                |
+| `tui.py`                        | Textual-based TUI client for peer login, peer discovery, and chat     |
 | `discovery_server/main.py`      | FastAPI server with `/register`, `/heartbeat`, and `/peers` endpoints |
 | `discovery_server/models.py`    | SQLAlchemy model for the `Peer` table                                 |
 | `discovery_server/database.py`  | SQLite database configuration                                         |
@@ -28,31 +29,51 @@ This project is a simple peer-to-peer messaging system with a centralized discov
 
 ## Setup and Usage
 
-### 1. Install Requirements
+### Prerequisites
+
+- Python 3.8 or higher  
+- Git
+
+### 1. Clone the repository and create a virtual environment
 
 ```bash
-pip install fastapi uvicorn sqlalchemy requests
+git clone <your-repo-url>
+cd <your-repo-directory>
+python -m venv venv
+source venv/Scripts/activate   # Windows (PowerShell)
+# or
+# source venv/bin/activate     # macOS/Linux
 ```
 
-### 2. Start the Discovery Server
-
-In the directory containing `main.py`, run:
+### 2. Install dependencies
 
 ```bash
-uvicorn main:app --reload
+pip install --upgrade pip
+pip install -r requirements.txt
 ```
 
-### 3. Run a Peer Client
-
-In a separate terminal, run:
+### 3. Start the discovery server
 
 ```bash
-python peer_client.py
+make server
+
 ```
 
-You will be prompted to enter a **peer ID** and a **listening port** (e.g., `5000`).
+### 4. Launch a client
 
----
+```bash
+make tui
+# or
+make peer
+
+```
+
+### 5. Cleanup
+
+```bash
+make clean
+
+```
 
 ## Peer Client Menu
 

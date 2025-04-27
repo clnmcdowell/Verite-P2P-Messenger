@@ -1,13 +1,22 @@
-
 from textual.app import App, ComposeResult
 from textual.containers import Vertical
 from textual.widgets import Header, Footer, Static, Button, Input, ListView, ListItem, Label
 from textual.screen import Screen
+from textual.timer import Timer
 
 from discovery_api import get_available_peers
 from chat_client import request_chat_with_peer, start_chat_session
 from chat_listener import chat_requests, start_listener_thread
 from registration import register_peer
+
+import logging
+logging.basicConfig(
+    filename="tui_debug.log",
+    level=logging.DEBUG,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+
+# ! TODO in TUI pressing enter after entering the peer ID should not submit the form, but rather move to the next input field and if it does submit the form it should start the same way as pressing the start button
 
 class StartupScreen(Screen):
     def compose(self) -> ComposeResult:
@@ -29,10 +38,6 @@ class StartupScreen(Screen):
             if peer_id and port_str.isdigit():
                 self.app.peer_id = peer_id
                 self.app.listen_port = int(port_str)
-
-                start_listener_thread(self.app.listen_port, self.app.peer_id)
-                register_peer(self.app.peer_id, self.app.listen_port)
-
                 self.app.push_screen(MainMenuScreen())
             else:
                 print("[!] Invalid input. Please enter both a valid ID and port.")
@@ -71,6 +76,14 @@ class MainMenuScreen(Screen):
             case "quit":
                 self.app.exit()
 
+    def on_mount(self) -> None:
+        if not hasattr(self.app, "listener_started"):
+            self.app.listener_started = True
+            logging.debug(f"[TUI] Starting listener on {self.app.listen_port}")
+            logging.debug(f"[TUI] Starting listener on {self.app.listen_port}")
+            start_listener_thread(self.app.listen_port, self.app.peer_id)
+            register_peer(self.app.peer_id, self.app.listen_port)
+
 class PeerListScreen(Screen):
     def compose(self) -> ComposeResult:
         yield Static("Available Peers")
@@ -81,11 +94,13 @@ class PeerListScreen(Screen):
 
     def on_mount(self) -> None:
         self.peer_list.clear()
-        for peer in self.app.peer_cache:
-            label = Label(f"{peer['id']} at {peer['ip']}:{peer['port']}")
-            item = ListItem(label, id=peer["id"])
+        for i, peer in enumerate(self.app.peer_cache):
+            display_id = peer["id"] if peer["id"] else f"peer-{i}"
+            label = Label(f"{peer['id'] or '[no id]'} at {peer['ip']}:{peer['port']}")
+            item = ListItem(label, id=display_id)
             item.data = peer
             self.peer_list.append(item)
+
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "back":
@@ -127,9 +142,15 @@ class MessengerApp(App):
         self.listen_port = 5000
         self.peer_cache = []
         self.temp_peer_id = ""
+        self.chat_request_checker: Timer | None = None
 
     def on_mount(self) -> None:
+        self.chat_request_checker = self.set_interval(1.5, self.check_chat_requests)
         self.push_screen(StartupScreen())
+
+    def check_chat_requests(self) -> None:
+        if not chat_requests.empty():
+            self.push_screen(ChatRequestsScreen())
 
 if __name__ == "__main__":
     MessengerApp().run()
