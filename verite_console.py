@@ -47,18 +47,23 @@ class StartupScreen(Screen):
             else:
                 print("[!] Invalid input. Please enter both a valid ID and port.")
 
-
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id == "peer_input":
-            self.app.temp_peer_id = event.value.strip()
+            # Save the temp ID and move focus to port field
+            self.app.temp_peer_id = event.input.value.strip()
+            self.set_focus(self.port_input)
         elif event.input.id == "port_input":
-            port_str = event.value.strip()
-            if port_str.isdigit():
-                self.app.peer_id = self.app.temp_peer_id
+            peer_id = self.peer_input.value.strip()
+            port_str = self.port_input.value.strip()
+            if peer_id and port_str.isdigit():
+                self.app.peer_id = peer_id
                 self.app.listen_port = int(port_str)
                 start_listener_thread(self.app.listen_port, self.app.peer_id)
                 register_peer(self.app.peer_id, self.app.listen_port)
                 self.app.push_screen(MainMenuScreen())
+            else:
+                print("[!] Invalid input. Please enter both a valid ID and port.")
+
 
 class MainMenuScreen(Screen):
     def compose(self) -> ComposeResult:
