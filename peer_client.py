@@ -146,8 +146,8 @@ def receive_messages(sock):
         print(f"[!] Error receiving message: {e}")
 
 def request_chat_with_peer(peer_ip, peer_port):
-    """"
-    Request to chat with another peer.
+    """
+    Request to chat with another peer and handle disconnects gracefully.
     """
     print(f"[*] Requesting chat with {peer_ip}:{peer_port}...")
 
@@ -162,28 +162,40 @@ def request_chat_with_peer(peer_ip, peer_port):
             if response == "ACCEPT":
                 print("[✓] Chat accepted. Starting session.")
                 threading.Thread(target=receive_messages, args=(sock,), daemon=True).start()
-                print("[*] Chat session started. Type '/quit' to exit.")
+                print("[*] Chat session started!")
+                print("[*] Type '/sendfile' to send a file.")
+                print("[*] Type '/quit' to exit the chat.")
 
-                # Start sending messages
-                while True:
-                    message = input("> ")
-                    if message.strip().lower() == "/quit":
-                        sock.close()
-                        print("[*] Chat session ended.")
-                        break
-                    elif message.strip().lower() == "/sendfile":
-                        send_file(sock)
-                        continue
-                    tagged_message = f"{PEER_ID} says: {message}"
-                    sock.sendall(tagged_message.encode())
+                # Start the chat loop
+                print("[*] Type your message:")
+                try:
+                    while True:
+                        message = input("> ")
+                        if message.strip().lower() == "/quit":
+                            sock.close()
+                            print("[*] Chat session ended.")
+                            break
+                        elif message.strip().lower() == "/sendfile":
+                            send_file(sock)
+                            continue
+                        # attempt to send; catch remote disconnects
+                        try:
+                            sock.sendall(f"{PEER_ID} says: {message}".encode())
+                        except ConnectionResetError:
+                            print("\n[!] Peer disconnected unexpectedly. Returning to menu.")
+                            break
+                except (KeyboardInterrupt, EOFError):
+                    sock.close()
+                    print("\n[*] Chat aborted. Returning to menu.")
             else:
                 print("[X] Chat declined.")
     except Exception as e:
         print(f"[!] Failed to request chat: {e}")
 
+
 def start_chat_loop(conn):
     """
-    Start the chat loop for sending and receiving messages.
+    Handle an accepted incoming chat request, with graceful disconnect.
     """
     print("[*] Chat session started. Type '/quit' to exit.")
 
@@ -212,13 +224,8 @@ def start_chat_loop(conn):
     threading.Thread(target=receiver, daemon=True).start()
 
     # Main loop for sending messages
-    while not stop_event.is_set():
-        try:
-            # Check for disconnection
-            if stop_event.is_set():
-                break
-
-            # Get user input for sending messages
+    try:
+        while not stop_event.is_set():
             message = input("> ")
             if message.strip().lower() == "/quit":
                 conn.close()
@@ -226,11 +233,16 @@ def start_chat_loop(conn):
                 break
             elif message.strip().lower() == "/sendfile":
                 send_file(conn)
-            continue
-            tagged_message = f"{PEER_ID} says: {message}"
-            conn.sendall(tagged_message.encode())
-        except Exception:
-            break
+                continue
+            # attempt to send; catch remote disconnects
+            try:
+                conn.sendall(f"{PEER_ID} says: {message}".encode())
+            except ConnectionResetError:
+                print("\n[!] Peer disconnected. Returning to menu.")
+                break
+    except (KeyboardInterrupt, EOFError):
+        conn.close()
+        print("\n[*] Chat aborted. Returning to menu.")
 
 def handle_pending_requests():
     """
