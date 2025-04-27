@@ -232,7 +232,7 @@ class ChatScreen(Screen):
         if text.lower() == "/quit":
             self.conn.close()
             self.stop_event.set()
-            self.app.pop_screen()
+            self.app.push_screen(MainMenuScreen())
             return
         if text.lower() == "/sendfile":
             self.awaiting_file_path = True
@@ -292,16 +292,15 @@ class ChatScreen(Screen):
         elif event.button.id == "quit_chat":
             self.conn.close()
             self.stop_event.set()
-            self.app.pop_screen()
+            self.app.push_screen(MainMenuScreen())
 
     async def on_key(self, event: events.Key) -> None:
         # press ESC to quit chat
         if event.key == "escape":
             self.conn.close()
             self.stop_event.set()
-            self.app.pop_screen()
-
-
+            self.app.push_screen(MainMenuScreen())
+            
 
 class VeriteConsole(App):
     def __init__(self):
