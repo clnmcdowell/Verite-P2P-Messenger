@@ -1,6 +1,6 @@
 from textual import events
 from textual.app import App, ComposeResult
-from textual.containers import Vertical, VerticalScroll
+from textual.containers import Vertical, Horizontal, VerticalScroll
 from textual.widgets import Header, Footer, Static, Button, Input, ListView, ListItem, Label
 from textual.screen import Screen
 from textual.timer import Timer
@@ -14,26 +14,27 @@ import logging
 import base64
 import os
 
-
 logging.basicConfig(
     filename="tui_debug.log",
     level=logging.DEBUG,
     format="%(asctime)s %(levelname)s %(message)s",
 )
 
-# ! TODO in TUI pressing enter after entering the peer ID should not submit the form, but rather move to the next input field and if it does submit the form it should start the same way as pressing the start button
 
 class StartupScreen(Screen):
     def compose(self) -> ComposeResult:
-        yield Static("Enter your peer ID:")
-        self.peer_input = Input(placeholder="peer123", id="peer_input")
-        yield self.peer_input
+        with Vertical(id="registration_form"):
+            with Vertical(id="form_fields"):
+                yield Static("Enter your peer ID:")
+                self.peer_input = Input(placeholder="peer123", id="peer_input")
+                yield self.peer_input
 
-        yield Static("Enter the port you want to listen on:")
-        self.port_input = Input(placeholder="5000", id="port_input")
-        yield self.port_input
+                yield Static("Enter the port you want to listen on:")
+                self.port_input = Input(placeholder="5000", id="port_input")
+                yield self.port_input
 
-        yield Button("Start", id="start")
+            yield Button("Start", id="start")
+
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "start":
@@ -69,10 +70,10 @@ class MainMenuScreen(Screen):
     def compose(self) -> ComposeResult:
         yield Static("Verite P2P Messenger", classes="title")
         yield Static(f"Logged in as: {self.app.peer_id} on port {self.app.listen_port}")
-        yield Button("1. View available peers", id="view")
-        yield Button("2. Refresh peer list", id="refresh")
-        yield Button("3. View incoming chat requests", id="requests")
-        yield Button("q. Quit", id="quit")
+        yield Button("View available peers", id="view")
+        yield Button("Refresh peer list", id="refresh")
+        yield Button("View incoming chat requests", id="requests")
+        yield Button("Quit", id="quit")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         match event.button.id:
@@ -174,13 +175,18 @@ class ChatScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header(f"Chat with {self.peer_name}")
-        self.history = ListView(id="history")
-        yield VerticalScroll(self.history, id="history_container")
-        self.input = Input(placeholder="Type message and hit Enter", id="chat_input")
-        yield self.input
-        with Vertical():
-            yield Button("Send File", id="send_file")
-            yield Button("Quit Chat", id="quit_chat")
+        
+        with Vertical(id="chat_layout"):
+            self.history = ListView(id="history")
+            yield VerticalScroll(self.history, id="history_container")
+            
+            with Vertical(id="input_area"):
+                self.input = Input(placeholder="Type a message and press Enter", id="chat_input")
+                yield self.input
+                with Horizontal(id="chat_buttons"):
+                    yield Button("Send File", id="send_file")
+                    yield Button("Quit Chat", id="quit_chat")
+        
         yield Footer()
 
     def on_mount(self) -> None:
@@ -319,6 +325,8 @@ class ChatScreen(Screen):
 
 
 class VeriteConsole(App):
+    CSS_PATH = "verite_console.tcss"
+
     def __init__(self):
         super().__init__()
         self.peer_id = "unknown"
@@ -334,6 +342,7 @@ class VeriteConsole(App):
     def check_chat_requests(self) -> None:
         if not chat_requests.empty():
             self.push_screen(ChatRequestsScreen())
+
 
 if __name__ == "__main__":
     VeriteConsole().run()

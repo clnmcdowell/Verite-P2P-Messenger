@@ -1,0 +1,134 @@
+/* Overall screen */
+Screen {
+    background: black;
+    color: white;
+}
+
+/* Registration Form Container */
+#registration_form {
+    align: center middle;
+    width: 60%;
+    height: auto;
+    padding: 2;
+}
+
+#form_fields {
+    align: center top;
+    width: 100%;
+    padding: 1 0;
+}
+
+/* Labels */
+Static {
+    background: transparent;
+    color: white;
+    padding: 0 1;
+    margin-bottom: 0;
+}
+
+/* Buttons */
+Button {
+    background: #333;
+    color: white;
+    border: none;
+    padding: 1 2;
+    margin-top: 1;
+}
+
+Button:hover {
+    background: #555;
+    text-style: bold;
+}
+
+/* Quit button specifically */
+Button#quit, Button#quit_chat {
+    background: #550000;
+    color: white;
+}
+
+Button#quit:hover, Button#quit_chat:hover {
+    background: #770000;
+}
+
+/* Peer List and Chat History Containers */
+ListView, VerticalScroll {
+    background: #111;
+    color: white;
+    padding: 0;
+    margin: 1 2;
+    width: 100%;
+    align: center top;
+}
+
+/* Individual chat and peer list items */
+ListItem {
+    background: #111;
+    color: white;
+    padding: 0 0;
+    margin-bottom: 0;
+}
+
+/* Header and Footer */
+Header, Footer {
+    background: #007acc;
+    color: white;
+    text-style: bold;
+    padding: 0 1;
+}
+
+/* Your own chat messages (greenish tint) */
+ListItem.own_message Label {
+    color: #00FF7F;
+}
+
+/* Incoming peer messages (cyan tint) */
+ListItem.peer_message Label {
+    color: #00BFFF;
+}
+
+ListView > ListItem.--highlight {
+    background: #333;
+    color: white;
+    text-style: bold;
+}
+
+#chat_layout {
+    height: 100%;
+    width: 100%;
+    align: center top;
+}
+
+#history_container {
+    height: 1fr;
+    width: 100%;
+    padding: 0 0 0 0;
+}
+
+#input_area {
+    height: 8;
+    width: 100%;
+    align: center top;
+    padding: 1 1;
+    background: black;
+}
+
+#chat_buttons {
+    align: left top;
+    padding: 0 1;
+}
+
+Input {
+    background: #222;
+    color: white;
+    border: none;
+    padding: 0 1;
+    margin-bottom: 1;
+    height: 3;
+    width: 100%;
+}
+
+Input:focus {
+    background: #333;
+    border: solid #007acc;
+    color: white;
+}
