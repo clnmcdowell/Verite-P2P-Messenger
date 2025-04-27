@@ -1,7 +1,7 @@
 import requests
 import os
 
-DISCOVERY_URL = os.getenv("DISCOVERY_URL", "http://localhost:8000")
+DISCOVERY_URL = os.getenv("DISCOVERY_URL", "http://127.0.0.1:8000")
 
 def register_peer(peer_id: str, port: int):
     payload = {"id": peer_id, "port": port}

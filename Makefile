@@ -1,4 +1,6 @@
-# Makefile
+HOST           ?= 127.0.0.1
+PORT           ?= 8000
+DISCOVERY_URL  ?= http://$(HOST):$(PORT)
 
 VENV    := venv
 PYTHON  := $(VENV)/Scripts/python.exe
