@@ -87,8 +87,13 @@ ListItem.peer_message Label {
 }
 
 ListView > ListItem.--highlight {
-    background: #333;
-    color: white;
+    background: #555;
+    text-style: bold;
+}
+
+ListView > ListItem.--highlight Button {
+    background: #007acc;
+    color: black;
     text-style: bold;
 }
 
@@ -105,7 +110,7 @@ ListView > ListItem.--highlight {
 }
 
 #input_area {
-    height: 8;
+    height: 10;
     width: 100%;
     align: center top;
     padding: 1 1;
