@@ -1,7 +1,7 @@
 /* Overall screen */
 Screen {
-    background: black;
-    color: white;
+    background: #0a0a0a;
+    color: #fefefe;
 }
 
 /* Registration Form Container */
@@ -10,93 +10,91 @@ Screen {
     width: 60%;
     height: auto;
     padding: 2;
-}
-
-#form_fields {
-    align: center top;
-    width: 100%;
-    padding: 1 0;
+    background: #1a0033;
 }
 
 /* Labels */
 Static {
     background: transparent;
-    color: white;
+    color: #f2f2f2;
     padding: 0 1;
     margin-bottom: 0;
-}
-
-/* Buttons */
-Button {
-    background: #333;
-    color: white;
-    border: none;
-    padding: 1 2;
-    margin-top: 1;
-}
-
-Button:hover {
-    background: #555;
     text-style: bold;
 }
 
-/* Quit button specifically */
+/* Buttons (softer magenta) */
+Button {
+    background: #cc66cc;
+    color: black;
+    padding: 0 1;
+    margin-top: 1;
+    text-style: bold;
+}
+
+Button:hover {
+    background: #dd88dd;
+    color: white;
+}
+
+/* Quit buttons */
 Button#quit, Button#quit_chat {
-    background: #550000;
+    background: #cc0000;
     color: white;
 }
 
 Button#quit:hover, Button#quit_chat:hover {
-    background: #770000;
+    background: #ff0000;
 }
 
 /* Peer List and Chat History Containers */
 ListView, VerticalScroll {
-    background: #111;
-    color: white;
+    background: #111133;
+    color: #fefefe;
     padding: 0;
     margin: 1 2;
     width: 100%;
     align: center top;
 }
 
-/* Individual chat and peer list items */
+/* Chat and peer list items */
 ListItem {
-    background: #111;
+    background: #0d0d2b;
     color: white;
-    padding: 0 0;
+    padding: 0;
     margin-bottom: 0;
 }
 
-/* Header and Footer */
+ListView > ListItem.--highlight {
+    background: #3333cc;
+    text-style: bold;
+}
+
+ListView > ListItem.--highlight Button {
+    background: #ffff33;
+    color: black;
+    text-style: bold;
+}
+
+/* Message coloring */
+ListItem.own_message Label {
+    color: #39ff14;
+    text-style: bold;
+}
+
+ListItem.peer_message Label {
+    color: #00eaff;
+    text-style: italic;
+}
+
+/* Header and Footer (less intense) */
 Header, Footer {
-    background: #007acc;
+    background: #bb66cc;
     color: white;
     text-style: bold;
     padding: 0 1;
 }
 
-/* Your own chat messages (greenish tint) */
-ListItem.own_message Label {
-    color: #00FF7F;
-}
-
-/* Incoming peer messages (cyan tint) */
-ListItem.peer_message Label {
-    color: #00BFFF;
-}
-
-ListView > ListItem.--highlight {
-    background: #555;
-    text-style: bold;
-}
-
-ListView > ListItem.--highlight Button {
-    background: #007acc;
-    color: black;
-    text-style: bold;
-}
-
+/* Chat Layout */
 #chat_layout {
     height: 100%;
     width: 100%;
@@ -106,26 +104,28 @@ ListView > ListItem.--highlight Button {
 #history_container {
     height: 1fr;
     width: 100%;
-    padding: 0 0 0 0;
+    padding: 0;
 }
 
+/* Input area */
 #input_area {
     height: 10;
     width: 100%;
     align: center top;
     padding: 1 1;
-    background: black;
+    background: #1a1a40;
 }
 
+/* Chat buttons row */
 #chat_buttons {
     align: left top;
     padding: 0 1;
 }
 
+/* Text input fields */
 Input {
-    background: #222;
-    color: white;
-    border: none;
+    background: #330066;
+    color: #ffddff;
     padding: 0 1;
     margin-bottom: 1;
     height: 3;
@@ -133,7 +133,7 @@ Input {
 }
 
 Input:focus {
-    background: #333;
-    border: solid #007acc;
+    background: #5500aa;
     color: white;
+    text-style: bold;
 }
