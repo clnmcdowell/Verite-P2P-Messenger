@@ -7,7 +7,7 @@ Screen {
 /* Registration Form Container */
 #registration_form {
     align: center middle;
-    width: 60%;
+    width: 100%;
     height: auto;
     padding: 2;
     background: #1a0033;
